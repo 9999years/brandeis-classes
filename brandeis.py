@@ -8,7 +8,10 @@ import functools
 import requests
 import bs4
 
-Requirement = namedtuple('Requirement', ['abbr', 'long_name'])
+
+# Requirements change over the years, so don't expect these to be perfectly
+# stable, all valid for a given semester, or all-inclusive. Courses from 2004
+# are sometimes marked 'qr2', for example. (shrug!)
 
 UNI_REQS = {'CA', 'FL', 'HUM', 'NW', 'OC', 'PE-1', 'QR', 'SN', 'SS', 'UWS', 'WI'}
 
