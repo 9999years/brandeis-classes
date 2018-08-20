@@ -10,7 +10,7 @@ import bs4
 
 Requirement = namedtuple('Requirement', ['abbr', 'long_name'])
 
-UNI_REQS = { 'CA', 'FL', 'HUM', 'NW', 'OC', 'PE-1', 'QR', 'SN', 'SS', 'UWS', 'WI', }
+UNI_REQS = {'CA', 'FL', 'HUM', 'NW', 'OC', 'PE-1', 'QR', 'SN', 'SS', 'UWS', 'WI'}
 
 LONG_REQ_NAMES = {
             'CA':   'School of Creative Arts',
@@ -25,6 +25,8 @@ LONG_REQ_NAMES = {
             'UWS':  'University Writing Seminar',
             'WI':   'Writing Intensive',
         }
+
+SEMESTERS = ['Fall', 'Spring', 'Summer']
 
 @dataclass
 class CourseTime:
@@ -71,14 +73,22 @@ class Course:
     # long description; might include frequencies and prerequisites
     description: str = None
 
+    semester: str = None
+    year: int = None
+
     @property
     def instructor_link(self):
         return ('https://www.brandeis.edu/facguide/person.html?emplid='
                 + self.instructor_id)
 
     @property
-    def friendly_name(self):
+    def friendly_number(self):
         return f'{self.subject} {self.number}{self.group}'
+
+    def __str__(self):
+        return (f'{self.friendly_number} {self.name} ({self.instructor})'
+                + ((' [' + ', '.join(self.uni_reqs) + ']')
+                    if self.uni_reqs else ''))
 
 def parse_times(time_location: bs4.element.Tag) -> List[CourseTime]:
     meeting = CourseTime()
@@ -183,9 +193,10 @@ def tr_to_course(tr: bs4.element.Tag) -> Course:
             schedule=parse_times(time_location),
 
             enrollment_status=' '.join(enrollment.find('span').text.split()),
-            enrolled=enrolled,
-            limit=limit,
-            waiting=waiting,
+
+            enrolled=int(enrolled),
+            limit   =int(limit),
+            waiting =int(waiting),
 
             syllabus=syllabus(course_id),
             instructor=instructor,
@@ -202,7 +213,7 @@ def is_tag(tag, name=None):
 def tag_filter(name):
     return functools.partial(is_tag, name=name)
 
-def page_html_to_courses(html):
+def page_to_courses(html):
     soup = bs4.BeautifulSoup(html, 'html.parser')
     trs = filter(
             tag_filter('tr'),
