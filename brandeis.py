@@ -3,6 +3,7 @@ from typing import Iterable, List
 from collections import namedtuple
 import itertools
 import re
+import functools
 
 import requests
 import bs4
@@ -50,30 +51,42 @@ class Course:
     group: str
 
     # weirdly formatted; maybe consistent? parsing this is a job for later
-    schedule: Iterable[CourseTime]
+    schedule: Iterable[CourseTime] = None
 
     # enrollment
-    enrolled: int
-    limit: int
-    waiting: int
+    enrolled: int = None
+    limit: int = None
+    waiting: int = None
     # open, closed, consent req., etc. that kinda thing
-    enrollment_status: str
+    enrollment_status: str = None
 
+    # syllabus link
+    syllabus: str = None
     # instructor name
-    instructor: str
+    instructor: str = None
     # actually a hash, i think; but a unique identifier of some sort
-    instructor_id: str
-    # long description; might include frequencies and prerequisites
-    description: str
+    instructor_id: str = None
     # fulfills which requirements?
-    uni_reqs: Iterable[str]
+    uni_reqs: Iterable[str] = None
+    # long description; might include frequencies and prerequisites
+    description: str = None
+
+    @property
+    def instructor_link(self):
+        return ('https://www.brandeis.edu/facguide/person.html?emplid='
+                + self.instructor_id)
+
+    @property
+    def friendly_name(self):
+        return f'{self.subject} {self.number}{self.group}'
 
 def parse_times(time_location: bs4.element.Tag) -> List[CourseTime]:
     meeting = CourseTime()
     schedule = []
-    i = 0
 
-    for el in time_location.contents:
+    i = -1
+    for el in time_location.children:
+        i += 1
         if isinstance(el, bs4.element.Tag):
             if el.name == 'hr':
                 schedule.append(meeting)
@@ -95,7 +108,6 @@ def parse_times(time_location: bs4.element.Tag) -> List[CourseTime]:
                 meeting.time = el
             else:
                 meeting.location = el
-        i += 1
 
     schedule.append(meeting)
     return schedule
@@ -111,13 +123,38 @@ def course_description(td: bs4.element.Tag) -> str:
         # TODO find a better error?
         raise ValueError
     soup = bs4.BeautifulSoup(req.text, 'html.parser')
-    return soup.find('p').text.strip()
 
-def row_to_course(tr: bs4.element.Tag) -> Course:
-    # soup = bs4.BeautifulSoup(tr, 'html.parser')
-    # return soup
+    # stringify; make <br>s \ns
+    ret = []
+    for tok in soup.find('p').children:
+        if isinstance(tok, str):
+            ret.append(tok)
+        elif isinstance(tok, bs4.element.Tag):
+            if tok.name == 'br':
+                ret.append('\n')
+            else:
+                ret.append(str(tok))
+    return ''.join(ret)
+
+def syllabus(td: bs4.element.Tag) -> str:
+    for a in td.find_all('a'):
+        if 'Syllabus' in a.text:
+            return a['href']
+
+def tr_to_course(tr: bs4.element.Tag) -> Course:
+    """
+    might return None
+    """
+    tds = list(filter(tag_filter('td'), tr.children))
+    if (len(tds) < 6 or (
+                'Class #' in tds[0].text
+            and 'Course #' in tds[1].text
+            and 'Course Title' in tds[2].text)):
+        return None
+
     # GHHFHJHFGHJDHBKLDHJKGSDFGKJ
-    class_number, course_id, title_reqs, time_location, enrollment, instructor, *_ = tr.find_all('td')
+    (class_number, course_id, title_reqs, time_location, enrollment,
+            instructor, *_) = tds
     subject, number, section, *_ = course_id.text.split()
     number, group = re.match(r'(\d+)([^0-9]*)', number).groups()
 
@@ -150,6 +187,7 @@ def row_to_course(tr: bs4.element.Tag) -> Course:
             limit=limit,
             waiting=waiting,
 
+            syllabus=syllabus(course_id),
             instructor=instructor,
             instructor_id=instructor_id,
 
@@ -157,18 +195,20 @@ def row_to_course(tr: bs4.element.Tag) -> Course:
             uni_reqs=reqs,
             )
 
-def grouper(iterable, n):
-    """
-    generator of chunks of n
-    """
-    it = iter(iterable)
-    while True:
-        chunk_it = itertools.islice(it, n)
-        try:
-            first_el = next(chunk_it)
-        except StopIteration:
-            return
-        yield itertools.chain((first_el,), chunk_it)
+def is_tag(tag, name=None):
+    return (isinstance(tag, bs4.element.Tag)
+            and (tag.name == name if name else True))
+
+def tag_filter(name):
+    return functools.partial(is_tag, name=name)
+
+def page_html_to_courses(html):
+    soup = bs4.BeautifulSoup(html, 'html.parser')
+    trs = filter(
+            tag_filter('tr'),
+            soup.find('table', id='classes-list').children)
+    # return list(trs)
+    return list(filter(None, map(tr_to_course, trs)))
 
 def main():
     pass
