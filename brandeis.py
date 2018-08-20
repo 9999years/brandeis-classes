@@ -90,24 +90,43 @@ class Course:
                 + ((' [' + ', '.join(self.uni_reqs) + ']')
                     if self.uni_reqs else ''))
 
+# TODO fix this???
 def parse_times(time_location: bs4.element.Tag) -> List[CourseTime]:
     meeting = CourseTime()
     schedule = []
 
+    # time_location might look kinda like:
+    #     <strong>Lecture:</strong>
+    #     <br>Block D 
+    #     <br>M,W,Th 11:00 AM–11:50 AM 
+    #     <br>Golding Judaica Center110
+    #     <hr>
+    #     <strong>Recitation:</strong>
+    #     <br>M 6:30 PM–9:20 PM 
+    #     <br>Gerstenzang 123
+    # NOTE: the "block" appears optional; so is the <strong>, especially if
+    # theres only 1 listing
+
+    # i is a counter for the string tokens in time_location; it only increments
+    # on strings
     i = -1
     for el in time_location.children:
-        i += 1
         if isinstance(el, bs4.element.Tag):
             if el.name == 'hr':
                 schedule.append(meeting)
-                i = 0
+                i = -1
                 meeting = CourseTime()
 
             elif el.name == 'strong':
                 meeting.info = el.text.strip()
 
         elif isinstance(el, str):
-            el = el.strip()
+            # join/split collapses whitespace
+            el = ' '.join(el.split())
+            if not el:
+                # skip empty tokens
+                continue
+            i += 1
 
             if el.startswith('Block'):
                 # trim "Block\xa0" from beginning
@@ -115,7 +134,7 @@ def parse_times(time_location: bs4.element.Tag) -> List[CourseTime]:
                 meeting.block = el[6:]
             elif i == 0 or (meeting.block is not None and i == 1):
                 # first row or row after 'block'; times
-                meeting.time = el
+                meeting.time = el.split()
             else:
                 meeting.location = el
 
