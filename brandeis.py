@@ -23,6 +23,19 @@ class CourseTime:
         return self.__dict__.copy()
 
 @dataclass
+class Instructor:
+    name: str
+    # actually a hash, i think; but a unique identifier of some sort
+    id: str
+
+    def __str__(self):
+        return self.name
+
+    def dict(self):
+        # useful for encoding as JSON
+        return self.__dict__.copy()
+
+@dataclass
 class Course:
     # e.g. Modal, Temporal, and Spatial Logic for Language
     name: str
@@ -42,7 +55,7 @@ class Course:
     section: str
 
     # weirdly formatted; maybe consistent? parsing this is a job for later
-    schedule: Iterable[CourseTime] = None
+    schedule: List[CourseTime] = None
 
     # enrollment
     enrolled: int = None
@@ -53,12 +66,10 @@ class Course:
 
     # syllabus link
     syllabus: str = None
-    # instructor name
-    instructor: str = None
-    # actually a hash, i think; but a unique identifier of some sort
-    instructor_id: str = None
+    # instructor(s); a list
+    instructors: List[Instructor] = None
     # fulfills which requirements?
-    uni_reqs: Iterable[str] = None
+    uni_reqs: List[str] = None
     # long description; might include frequencies and prerequisites
     description: str = None
     # notes below course title, might include notes on prereqs, etc.
@@ -81,22 +92,28 @@ class Course:
 
     @property
     def uni_reqs_str(self):
-        return (' [' + ', '.join(self.uni_reqs) + ']') if self.uni_reqs else ''
+        return ('[' + ', '.join(self.uni_reqs) + ']') if self.uni_reqs else ''
+
+    @property
+    def instructor_str(self):
+        return '; '.join(map(str, self.instructors))
 
     def dict(self):
         ret = self.__dict__.copy()
         ret['schedule'] = [ct.dict() for ct in ret['schedule']]
+        ret['instructors'] = [i.dict() for i in ret['instructors']]
         return ret
 
     @staticmethod
     def from_dict(d):
         ret = Course(**d)
-        ret.schedule = [CourseTime(*s) for s in ret.schedule]
+        ret.schedule = [CourseTime(**s) for s in ret.schedule]
+        ret.instructors = [Instructor(**i) for i in ret.instructors]
         return ret
 
     def __str__(self):
-        return (f'{self.friendly_number} {self.name} ({self.instructor})'
-                + (' ' + self.uni_reqs_str if self.uni_reqs else ''))
+        return (f'{self.friendly_number} {self.name} ({self.instructor_str})'
+                + ((' ' + self.uni_reqs_str) if self.uni_reqs else ''))
 
 def parse_times(time_location: bs4.element.Tag) -> List[CourseTime]:
     meeting = CourseTime()
@@ -206,7 +223,12 @@ def course_notes(td: bs4.element.Tag):
     if not found_close:
         return None
 
-    return multiline_text(children)
+    ret = multiline_text(children)
+
+    if not ret.strip():
+        return None
+
+    return ret
 
 def enrollment_info(td: bs4.element.Tag):
     # last string in enrollment is like '4 / 10 / 0'
@@ -217,17 +239,22 @@ def enrollment_info(td: bs4.element.Tag):
 def enrollment_status(td: bs4.element.Tag):
     return ' '.join(td.find('span').text.split())
 
-def instructor_info(td: bs4.element.Tag):
+def instructor_info(td: bs4.element.Tag) -> List[Instructor]:
     """returns name, id tuple"""
-    instructor = td.text.split()
-    if instructor:
-        return (' '.join(instructor),
-                re.search(
-                    r'emplid=([0-9a-f]+)',
-                    td.find('a')['href']
-                ).group(1))
+    def instructor_id(a):
+        return re.search(
+                r'emplid=([0-9a-f]+)',
+                a['href']
+            ).group(1)
+
+    def a_to_instructor(a):
+        return Instructor(name=' '.join(a.text.split()), id=instructor_id(a))
+
+    instructors = td.find_all('a')
+    if not instructors:
+        return None
     else:
-        return None, None
+        return list(map(a_to_instructor, instructors))
 
 def tr_is_course(tr: bs4.element.Tag) -> List[bs4.element.Tag]:
     """
@@ -252,7 +279,10 @@ def tr_to_course(tr: bs4.element.Tag, request_description=True) -> Course:
 
     # GHHFHJHFGHJDHBKLDHJKGSDFGKJ
     (class_number, course_id, title_reqs, time_location, enrollment,
-            instructor, *_) = tds
+            instructor, *rest) = tds
+
+    if rest:
+        books, *_ = rest
 
     subject, number, group, section = course_ids(course_id)
 
@@ -261,7 +291,7 @@ def tr_to_course(tr: bs4.element.Tag, request_description=True) -> Course:
 
     enrolled, limit, waiting = enrollment_info(enrollment)
 
-    instructor, instructor_id = instructor_info(instructor)
+    instructors = instructor_info(instructor)
 
     return Course(
             name=name,
@@ -281,8 +311,7 @@ def tr_to_course(tr: bs4.element.Tag, request_description=True) -> Course:
             waiting=waiting,
 
             syllabus=syllabus(course_id),
-            instructor=instructor,
-            instructor_id=instructor_id,
+            instructors=instructors,
 
             description=course_description(course_id)
                         if request_description else None,
@@ -299,9 +328,11 @@ def tag_filter(name):
 
 def page_to_courses(html):
     soup = bs4.BeautifulSoup(html, 'html.parser')
-    trs = filter(
-            tag_filter('tr'),
-            soup.find('table', id='classes-list').children)
+    table = soup.find('table', id='classes-list')
+    if not table:
+        # couldnt find a good table, try anyways
+        table = soup
+    trs = filter(tag_filter('tr'), table.children)
     # return list(trs)
     return list(filter(None, map(tr_to_course, trs)))
 

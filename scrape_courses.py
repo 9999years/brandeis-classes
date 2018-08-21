@@ -6,12 +6,14 @@ from typing import Iterable
 
 import requests
 from termcolor import colored
+import bs4
 
 import brandeis
 
-def courses(pages: Iterable[int], year: int, semester: str,
-        base_url: str = 'http://registrar-prod.unet.brandeis.edu/registrar/schedule/search'):
-    params = {
+SEARCH_URL = 'http://registrar-prod.unet.brandeis.edu/registrar/schedule/search'
+
+def req_params(page: int, year: int, semester: str) -> dict:
+    return {
             'strm': brandeis.strm(year, semester),
             'view': 'all',
             'time': 'time',
@@ -24,13 +26,14 @@ def courses(pages: Iterable[int], year: int, semester: str,
             'status': '',
             'block': '',
             'keywords': '',
-            'page': 1
+            'page': page
         }
 
+def courses(pages: Iterable[int], year: int, semester: str,
+        base_url: str = SEARCH_URL):
     for pg in pages:
         print(colored('--- Page ' + str(pg) + ' ---', attrs=['bold']))
-        params['page'] = pg
-        req = requests.get(base_url, params=params)
+        req = requests.get(base_url, params=req_params(pg, year, semester))
         if not req.ok:
             raise requests.exceptions.HTTPError
         print('--- Main req. fin. ---')
@@ -41,13 +44,20 @@ def courses(pages: Iterable[int], year: int, semester: str,
         yield courses
         time.sleep(random.randint(1, 15))
 
+def high_page(year: int, semester: str) -> int:
+    req = requests.get(SEARCH_URL, params=req_params(1, year, semester))
+    if not req.ok:
+        raise requests.exceptions.HTTPError
+    soup = bs4.BeautifulSoup(req.text, 'html.parser')
+    return max(map(int, filter(str.isdigit, map(lambda t: t.text,
+            soup.find_all('a', {'class': 'pagenumber'})
+        ))))
+
 def main():
     parser = argparse.ArgumentParser(description='batch downloads course info')
 
     parser.add_argument('-s', '--start-page', type=int,
             help='''Start page''')
-    parser.add_argument('-p', '--page', type=int,
-            help='''High page count, inclusive''')
     parser.add_argument('-o', '--out', type=argparse.FileType('a'),
             help='''JSON output file''')
     parser.add_argument('-e', '--semester', choices=brandeis.constants.SEMESTERS)
@@ -55,10 +65,13 @@ def main():
 
     args = parser.parse_args()
 
-    if args.page is None or args.year is None or args.semester is None or args.year is None:
+    if args.year is None or args.semester is None or args.year is None:
         parser.error('Mandatory argument not given')
 
-    for crss in courses(range(args.start_page, args.page + 1), args.year, args.semester):
+    args.out.write('[\n')
+    for crss in courses(
+            range(args.start_page, high_page(args.year, args.semester)),
+            args.year, args.semester):
         for crs in crss:
             print(
                     colored('\t' + crs.friendly_number, 'green', attrs=['bold']),
@@ -67,6 +80,8 @@ def main():
                     colored(crs.uni_reqs_str, attrs=['dark']),
                     )
             json.dump(crs.dict(), args.out, indent=2)
+            args.out.write(',\n')
+    args.out.write('\n]')
 
 if __name__ == '__main__':
     main()
