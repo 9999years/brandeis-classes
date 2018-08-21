@@ -242,7 +242,7 @@ def tr_is_course(tr: bs4.element.Tag) -> List[bs4.element.Tag]:
         return None
     return tds
 
-def tr_to_course(tr: bs4.element.Tag) -> Course:
+def tr_to_course(tr: bs4.element.Tag, request_description=True) -> Course:
     """
     might return None
     """
@@ -284,7 +284,8 @@ def tr_to_course(tr: bs4.element.Tag) -> Course:
             instructor=instructor,
             instructor_id=instructor_id,
 
-            description=course_description(course_id),
+            description=course_description(course_id)
+                        if request_description else None,
             notes=course_notes(title_reqs),
             uni_reqs=reqs,
             )

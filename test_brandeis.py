@@ -12,8 +12,8 @@ def tr_to_soup(html):
 def test_tr_to_course():
     tr = tr_to_soup(read('test-data/cosi_199a_1.html'))
     crs = brandeis.tr_to_course(tr)
-    print(repr(crs.description))
-    print(repr(crs.notes))
+    assert crs.friendly_number == 'COSI 199A_1'
+    assert crs.uni_reqs_str == '[sn]'
     assert crs == brandeis.Course(
             name='Autonomous Robotics Lab',
             class_number=16905,
