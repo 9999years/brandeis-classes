@@ -56,7 +56,7 @@ def high_page(year: int, semester: str) -> int:
 def main():
     parser = argparse.ArgumentParser(description='batch downloads course info')
 
-    parser.add_argument('-s', '--start-page', type=int,
+    parser.add_argument('-s', '--start-page', type=int, default=1,
             help='''Start page''')
     parser.add_argument('-o', '--out', type=argparse.FileType('a'),
             help='''JSON output file''')
@@ -70,13 +70,13 @@ def main():
 
     args.out.write('[\n')
     for crss in courses(
-            range(args.start_page, high_page(args.year, args.semester)),
+            range(args.start_page, high_page(args.year, args.semester) + 1),
             args.year, args.semester):
         for crs in crss:
             print(
                     colored('\t' + crs.friendly_number, 'green', attrs=['bold']),
                     crs.name,
-                    colored('(' + crs.instructor + ')', 'cyan') if crs.instructor else '',
+                    colored('(' + crs.instructor_str + ')', 'cyan') if crs.instructor_str else '',
                     colored(crs.uni_reqs_str, attrs=['dark']),
                     )
             json.dump(crs.dict(), args.out, indent=2)

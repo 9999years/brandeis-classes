@@ -96,12 +96,14 @@ class Course:
 
     @property
     def instructor_str(self):
-        return '; '.join(map(str, self.instructors))
+        return '; '.join(map(str, self.instructors)) if self.instructors else ''
 
     def dict(self):
         ret = self.__dict__.copy()
-        ret['schedule'] = [ct.dict() for ct in ret['schedule']]
-        ret['instructors'] = [i.dict() for i in ret['instructors']]
+        if ret['schedule']:
+            ret['schedule'] = [ct.dict() for ct in ret['schedule']]
+        if ret['instructors']:
+            ret['instructors'] = [i.dict() for i in ret['instructors']]
         return ret
 
     @staticmethod
