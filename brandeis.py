@@ -8,7 +8,6 @@ import json
 
 import requests
 import bs4
-from cached_property import cached_property
 
 import constants
 
@@ -87,6 +86,12 @@ class Course:
     def dict(self):
         ret = self.__dict__.copy()
         ret['schedule'] = [ct.dict() for ct in ret['schedule']]
+        return ret
+
+    @staticmethod
+    def from_dict(d):
+        ret = Course(**d)
+        ret.schedule = [CourseTime(*s) for s in ret.schedule]
         return ret
 
     def __str__(self):
