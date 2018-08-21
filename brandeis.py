@@ -4,32 +4,13 @@ from collections import namedtuple
 import itertools
 import re
 import functools
+import json
 
 import requests
 import bs4
+from cached_property import cached_property
 
-
-# Requirements change over the years, so don't expect these to be perfectly
-# stable, all valid for a given semester, or all-inclusive. Courses from 2004
-# are sometimes marked 'qr2', for example. (shrug!)
-
-UNI_REQS = {'CA', 'FL', 'HUM', 'NW', 'OC', 'PE-1', 'QR', 'SN', 'SS', 'UWS', 'WI'}
-
-LONG_REQ_NAMES = {
-            'CA':   'School of Creative Arts',
-            'FL':   'Foreign Language Requirement',
-            'HUM':  'School of Humanities',
-            'NW':   'Non-Western and Comparative Studies',
-            'OC':   'Oral Communication',
-            'PE-1': 'Physical Education 1 Course',
-            'QR':   'Quantitative Reasoning Requirement',
-            'SN':   'School of Science',
-            'SS':   'School of Social Science',
-            'UWS':  'University Writing Seminar',
-            'WI':   'Writing Intensive',
-        }
-
-SEMESTERS = ['Fall', 'Spring', 'Summer']
+import constants
 
 @dataclass
 class CourseTime:
@@ -37,6 +18,10 @@ class CourseTime:
     times: str = None
     location: str = None
     info: str = None
+
+    def dict(self):
+        # useful for encoding as JSON
+        return self.__dict__.copy()
 
 @dataclass
 class Course:
@@ -46,14 +31,16 @@ class Course:
     class_number: int
 
     # subject, number, and group form parts of the course's "display name"
-    # an example is COSI 118A_1, where the trailing "1" is a section number and
-    # is discarded
+    # an example is COSI 118A_1, where the trailing "1" is a section number
     # e.g. COSI
     subject: str
     # e.g. 118
     number: int
     # e.g. a, b, c, ...
     group: str
+    # 1, 2, 3...
+    # SOMETIMES (ED 285 1DL) something weird like '1DL'
+    section: str
 
     # weirdly formatted; maybe consistent? parsing this is a job for later
     schedule: Iterable[CourseTime] = None
@@ -75,6 +62,8 @@ class Course:
     uni_reqs: Iterable[str] = None
     # long description; might include frequencies and prerequisites
     description: str = None
+    # notes below course title, might include notes on prereqs, etc.
+    notes: str = None
 
     semester: str = None
     year: int = None
@@ -86,14 +75,24 @@ class Course:
 
     @property
     def friendly_number(self):
-        return f'{self.subject} {self.number}{self.group}'
+        ret = f'{self.subject} {self.number}{self.group}'
+        if self.section:
+            ret += '_' + self.section
+        return ret
+
+    @property
+    def uni_reqs_str(self):
+        return (' [' + ', '.join(self.uni_reqs) + ']') if self.uni_reqs else ''
+
+    def dict(self):
+        ret = self.__dict__.copy()
+        ret['schedule'] = [ct.dict() for ct in ret['schedule']]
+        return ret
 
     def __str__(self):
         return (f'{self.friendly_number} {self.name} ({self.instructor})'
-                + ((' [' + ', '.join(self.uni_reqs) + ']')
-                    if self.uni_reqs else ''))
+                + (' ' + self.uni_reqs_str if self.uni_reqs else ''))
 
-# TODO fix this???
 def parse_times(time_location: bs4.element.Tag) -> List[CourseTime]:
     meeting = CourseTime()
     schedule = []
@@ -137,12 +136,25 @@ def parse_times(time_location: bs4.element.Tag) -> List[CourseTime]:
                 meeting.block = el[6:]
             elif i == 0 or (meeting.block is not None and i == 1):
                 # first row or row after 'block'; times
-                meeting.time = el.split()
+                meeting.times = el
             else:
                 meeting.location = el
 
     schedule.append(meeting)
     return schedule
+
+def multiline_text(els: Iterable) -> str:
+    # stringify; make <br>s \ns
+    ret = []
+    for tok in els:
+        if isinstance(tok, str):
+            ret.append(tok.strip())
+        elif isinstance(tok, bs4.element.Tag):
+            if tok.name == 'br':
+                ret.append('\n')
+            else:
+                ret.append(str(tok))
+    return ''.join(ret).strip()
 
 def course_description(td: bs4.element.Tag) -> str:
     href = td.find('a')['href']
@@ -152,30 +164,70 @@ def course_description(td: bs4.element.Tag) -> str:
             + re.search(r"'(course?[^']+)'", href).group(1))
     req = requests.get(url)
     if not req.ok:
-        # TODO find a better error?
-        raise ValueError
+        raise requests.exceptions.HTTPError
     soup = bs4.BeautifulSoup(req.text, 'html.parser')
 
-    # stringify; make <br>s \ns
-    ret = []
-    for tok in soup.find('p').children:
-        if isinstance(tok, str):
-            ret.append(tok)
-        elif isinstance(tok, bs4.element.Tag):
-            if tok.name == 'br':
-                ret.append('\n')
-            else:
-                ret.append(str(tok))
-    return ''.join(ret)
+    return multiline_text(soup.find('p').children)
 
 def syllabus(td: bs4.element.Tag) -> str:
     for a in td.find_all('a'):
         if 'Syllabus' in a.text:
             return a['href']
 
-def tr_to_course(tr: bs4.element.Tag) -> Course:
+def course_ids(td: bs4.element.Tag):
+    subject, number, section, *_ = td.text.split()
+    number, group = re.match(r'(\d+)([^0-9]*)', number).groups()
+    return subject, int(number), group, section
+
+def uni_reqs(td: bs4.element.Tag):
+    return list(map(
+        lambda req: req.text.strip(),
+        td.find_all('span', {'class': 'requirement'})))
+
+def course_notes(td: bs4.element.Tag):
+    found_close = False
+    children = td.children
+    if uni_reqs(td):
+        for tok in children:
+            if isinstance(tok, str) and tok.strip() == ']':
+                found_close = True
+                break
+    else:
+        for tok in children:
+            if isinstance(tok, bs4.element.Tag) and tok.name == 'strong':
+                found_close = True
+                break
+
+    if not found_close:
+        return None
+
+    return multiline_text(children)
+
+def enrollment_info(td: bs4.element.Tag):
+    # last string in enrollment is like '4 / 10 / 0'
+    # underscores ignore the slashes
+    enrolled, _, limit, _, waiting = td.contents[-1].split()
+    return int(enrolled), int(limit), int(waiting)
+
+def enrollment_status(td: bs4.element.Tag):
+    return ' '.join(td.find('span').text.split())
+
+def instructor_info(td: bs4.element.Tag):
+    """returns name, id tuple"""
+    instructor = td.text.split()
+    if instructor:
+        return (' '.join(instructor),
+                re.search(
+                    r'emplid=([0-9a-f]+)',
+                    td.find('a')['href']
+                ).group(1))
+    else:
+        return None, None
+
+def tr_is_course(tr: bs4.element.Tag) -> List[bs4.element.Tag]:
     """
-    might return None
+    if yes: returns list of tds
+    if no: returns None
     """
     tds = list(filter(tag_filter('td'), tr.children))
     if (len(tds) < 6 or (
@@ -183,48 +235,52 @@ def tr_to_course(tr: bs4.element.Tag) -> Course:
             and 'Course #' in tds[1].text
             and 'Course Title' in tds[2].text)):
         return None
+    return tds
+
+def tr_to_course(tr: bs4.element.Tag) -> Course:
+    """
+    might return None
+    """
+    tds = tr_is_course(tr)
+    if not tds:
+        return None
 
     # GHHFHJHFGHJDHBKLDHJKGSDFGKJ
     (class_number, course_id, title_reqs, time_location, enrollment,
             instructor, *_) = tds
-    subject, number, section, *_ = course_id.text.split()
-    number, group = re.match(r'(\d+)([^0-9]*)', number).groups()
+
+    subject, number, group, section = course_ids(course_id)
 
     name = title_reqs.find('strong').text.strip()
-    reqs = list(map(
-        lambda req: req.text.strip(),
-        title_reqs.find_all('span', {'class': 'requirement'})))
+    reqs = uni_reqs(title_reqs)
 
-    # last string in enrollment is like '4 / 10 / 0'
-    # underscores ignore the slashes
-    enrolled, _, limit, _, waiting = enrollment.contents[-1].split()
+    enrolled, limit, waiting = enrollment_info(enrollment)
 
-    instructor_id = re.search(
-            r'emplid=([0-9a-f]+)',
-            instructor.find('a')['href']).group(1)
-    instructor = instructor.text.strip()
+    instructor, instructor_id = instructor_info(instructor)
 
     return Course(
             name=name,
             class_number=int(class_number.text),
 
             subject=subject,
-            number=int(number),
+            number=number,
             group=group,
+            section=section,
 
             schedule=parse_times(time_location),
 
-            enrollment_status=' '.join(enrollment.find('span').text.split()),
+            enrollment_status=enrollment_status(enrollment),
 
-            enrolled=int(enrolled),
-            limit   =int(limit),
-            waiting =int(waiting),
+            enrolled=enrolled,
+            limit=limit,
+            waiting=waiting,
 
             syllabus=syllabus(course_id),
             instructor=instructor,
             instructor_id=instructor_id,
 
             description=course_description(course_id),
+            notes=course_notes(title_reqs),
             uni_reqs=reqs,
             )
 
@@ -242,6 +298,21 @@ def page_to_courses(html):
             soup.find('table', id='classes-list').children)
     # return list(trs)
     return list(filter(None, map(tr_to_course, trs)))
+
+def schedule_url(year, semester, subject, kind='All'):
+    """
+    kind: All, UGRD, or GRAD
+    semester: Fall, Spring, or Summer
+    subject: an int; a key from constants.SUBJECTS
+    """
+    return ('http://registrar-prod.unet.brandeis.edu/registrar/schedule/classes'
+            f'/{year}/{semester}/{subject}/{kind}')
+
+def strm(year, semester):
+    return int(
+            1000 # ????
+            + (10 * (year % 100))
+            + constants.SEMESTERS.index(semester) + 1)
 
 def main():
     pass
