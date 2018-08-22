@@ -353,8 +353,6 @@ def strm(year, semester):
             + (10 * (year % 100))
             + constants.SEMESTERS.index(semester) + 1)
 
-def main():
-    pass
-
-if __name__ == '__main__':
-    main()
+def load_courses(file_obj):
+    course_dicts = json.load(file_obj)
+    return [Course.from_dict(c) for c in course_dicts]
