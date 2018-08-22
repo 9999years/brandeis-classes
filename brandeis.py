@@ -79,6 +79,11 @@ class Course:
     year: int = None
 
     @property
+    def title(self):
+        """alias for self.name"""
+        return self.name
+
+    @property
     def instructor_link(self):
         return ('https://www.brandeis.edu/facguide/person.html?emplid='
                 + self.instructor_id)
@@ -109,8 +114,10 @@ class Course:
     @staticmethod
     def from_dict(d):
         ret = Course(**d)
-        ret.schedule = [CourseTime(**s) for s in ret.schedule]
-        ret.instructors = [Instructor(**i) for i in ret.instructors]
+        if ret.schedule:
+            ret.schedule = [CourseTime(**s) for s in ret.schedule]
+        if ret.instructors:
+            ret.instructors = [Instructor(**i) for i in ret.instructors]
         return ret
 
     def __str__(self):
