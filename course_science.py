@@ -2,6 +2,7 @@ from typing import List, Mapping
 from glob import glob
 import os.path
 from collections import Counter
+import itertools
 
 import brandeis
 
@@ -31,18 +32,38 @@ def read_all(outdir: str = 'out') -> List[brandeis.Course]:
         year, semester = base.split('-')
         if semester == '1':
             # january
-            semester = '01'
+            # semester = '01'
+            pass
         elif semester == '2':
             # skip summer
             continue
         elif semester == '3':
             # september
-            semester = '09'
+            # semester = '09'
+            pass
         else:
             raise ValueError('Invalid semester number ' + semester)
         ret[f'{year}-{semester}'] = read(fname)
 
     return ret
+
+def display_semester(sem) -> str:
+    yr, sem = sem.split('-')
+    sem = {
+            '1': 'Spring',
+            '3': 'Fall',
+        }[sem]
+    return f'{yr} {sem}'
+
+def total_courses_per_subject():
+    ret = {}
+    for courses in all_courses().values():
+        for course in courses:
+            if course.subject not in ret:
+                ret[course.subject] = 0
+            ret[course.subject] += 1
+    return ret
+
 
 def courses_per_subject():
     ret = {}
@@ -51,12 +72,42 @@ def courses_per_subject():
 
     return ret
 
-def courses_per_semester() -> List[int]:
-    return list(map(len, all_courses()))
+def courses_per_semester(subj=None) -> List[int]:
+    ret = {}
+    for sem, courses in all_courses().items():
+        if subj is not None:
+            courses = list(filter(lambda c: c.subject == subj, courses))
+        ret[sem] = len(courses)
+    return ret
+
+def students_per_semester(subj=None) -> List[int]:
+    ret = {}
+    for sem, courses in all_courses().items():
+        if subj is not None:
+            courses = list(filter(lambda c: c.subject == subj, courses))
+        ret[sem] = sum(map(lambda c: c.enrolled, courses))
+    return ret
+
+def printdict(d):
+    i = 0
+    print('[')
+    for sem, dat in d.items():
+        i += 1
+        sem = format(repr(display_semester(sem)), '13')
+        print('[', sem, ',', dat, '],')
+    print(']')
 
 def main():
-    for sem, courses in courses_per_subject().items():
-        print(sem, ':', courses.most_common(5))
+    # corr = courses_per_semester()
+    # for sem, dat in courses_per_semester('COSI').items():
+        # corr[sem] = dat / corr[sem]
+    # printdict(courses_per_subject())
+    # print(sorted(set(map(lambda c: c.subject, itertools.chain(*all_courses().values())))))
+    subjects = total_courses_per_subject()
+    subjects = [(k, subjects[k]) for k in sorted(subjects, key=subjects.get, reverse=True)]
+    print(*[s[0] for s in subjects if s[1] > 500], sep='\n')
+    # for sem, courses in courses_per_subject().items():
+        # print(sem, ':', courses.most_common(5))
 
 if __name__ == '__main__':
     main()
