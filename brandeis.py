@@ -335,7 +335,7 @@ def is_tag(tag, name=None):
 def tag_filter(name):
     return functools.partial(is_tag, name=name)
 
-def page_to_courses(html):
+def page_to_courses(html, request_description=True):
     soup = bs4.BeautifulSoup(html, 'html.parser')
     table = soup.find('table', id='classes-list')
     if not table:
@@ -343,9 +343,12 @@ def page_to_courses(html):
         table = soup
     trs = filter(tag_filter('tr'), table.children)
     # return list(trs)
-    return list(filter(None, map(tr_to_course, trs)))
+    tr_fn = tr_to_course
+    if not request_description:
+        tr_fn = functools.partial(tr_to_course, request_description=False)
+    return list(filter(None, map(tr_fn, trs)))
 
-def schedule_url(year, semester, subject, kind='All'):
+def schedule_url(year, semester, subject, kind='all'):
     """
     kind: All, UGRD, or GRAD
     semester: Fall, Spring, or Summer

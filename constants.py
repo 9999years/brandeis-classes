@@ -1,4 +1,4 @@
-SUBJECTS = {
+SUBJECT_NUMBERS = {
     100  : 'African and Afro-American Studies',
     200  : 'American Studies',
     300  : 'Anthropology',
@@ -90,6 +90,124 @@ SUBJECTS = {
     7050 : 'University Writing (COMP and UWS)',
     6900 : "Women's, Gender, and Sexuality Studies",
     7000 : 'Yiddish',
+}
+
+SUBJECTS = {
+    'AAAS'     : 'African and Afro-American Studies'                , # 100
+    'HIST'     : 'American Studies'                                 , # 200
+    'ANTH'     : 'Anthropology'                                     , # 300
+    'ARBC'     : 'Arabic Language, Literature and Culture'          , # 400
+    'AAPI'     : 'Asian-American Pacific Islander'                  , # 475
+    'BCHM'     : 'Biochemistry and Biophysics'                      , # 510
+    'BIOL'     : 'Biology'                                          , # 700
+    'BUS'      : 'Business'                                         , # 900
+    'CHEM'     : 'Chemistry'                                        , # 1000
+    'CHIN'     : 'Chinese Studies'                                  , # 1100
+    'CLAS'     : 'Classical Studies'                                , # 1200
+    'COMP'     : 'Composition'                                      ,
+    'COSI'     : 'Computer Science'                                 , # 1400
+    'CHIN'     : 'Chinese'                                          , # 1500
+    'ECON'     : 'Economics'                                        , # 1600
+    'ED'       : 'Education'                                        , # 1700
+    'ESL'      : 'English as a Second Language'                     , # 1850
+    'ENVS'     : 'Environmental Studies'                            , # 1900
+    'PHIL'     : 'Philosophy'                                       , # 2000
+    'EL'       : 'Experiential Learning'                            , # 2050
+    'ENG'      : 'English'                                          , # 2100
+    'FA'       : 'Fine Arts'                                        , # 2300
+    'FYS'      : 'First Year Seminars'                              , # 8000
+    'FREN'     : 'French and Francophone Studies'                   , # 2400
+    'GER'      : 'German Studies'                                   , # 2500
+    'HS'       : 'Global Studies'                                   , # 2535
+    'GRK'      : 'Greek'                                            , # 2550
+    'HBRW'     : 'Hebrew'                                           , # 2800
+    'HS'       : 'Heller School for Social Policy and Management'   , # 2900
+    'HISP'     : 'Hispanic Studies'                                 , # 6600
+    'HIST'     : 'History'                                          , # 3000
+    'HRNS'     : 'Hornstein Jewish Professional Leadership Program' , # 3200
+    'HUM'      : 'Humanities'                                       , # 3250
+    'POL'      : 'International and Global Studies'                 , # 3400
+    'FIN'      : 'International Business School'                    , # 3600
+    'INT'      : 'Internship'                                       , # 3700
+    'IMES'     : 'Islamic and Middle Eastern Studies'               , # 3900
+    'ITAL'     : 'Italian Studies'                                  , # 4000
+    'JAPN'     : 'Japanese'                                         , # 4100
+    'JOUR'     : 'Journalism'                                       , # 4200
+    'KOR'      : 'Korean'                                           , # 4235
+    'LING'     : 'Language and Linguistics'                         , # 4600
+    'LAT'      : 'Latin'                                            , # 4250
+    'HISP'     : 'Latin American and Latino Studies'                , # 4300
+    'LGLS'     : 'Legal Studies'                                    , # 4400
+    'MATH'     : 'Mathematics'                                      , # 4700
+    'MUS'      : 'Medieval and Renaissance Studies'                 , # 4800
+    'MUS'      : 'Music'                                            , # 5000
+    'NEJS'     : 'Near Eastern and Judaic Studies'                  , # 5100
+    'POL'      : 'Peace, Conflict, and Coexistence Studies'         , # 5300
+    'PHIL'     : 'Philosophy'                                       , # 5400
+    'PE'       : 'Physical Education'                               , # 5500
+    'PHYS'     : 'Physics'                                          , # 5600
+    'POL'      : 'Politics'                                         , # 5700
+    'PSYC'     : 'Psychology'                                       , # 5900
+    'RUS'      : 'Russian Studies'                                  , # 6300
+    'HIST/SOC' : 'Sexuality and Queer Studies'                      , # 6350
+    'SOC'      : 'Sociology'                                        , # 6500
+    'SAS'      : 'South Asian Studies'                              , # 6550
+    'THA'      : 'Theater Arts'                                     , # 6700
+    'UWS'      : 'University Writing (COMP and UWS)'                , # 7050
+    'WMGS'     : "Women's, Gender, and Sexuality Studies"           , # 6900
+    'YDSH'     : 'Yiddish'                                          , # 7000
+    'AMST' : '',
+    'BCBP' : '',
+    'BCSC' : '',
+    'BIBC' : '',
+    'BIOP' : '',
+    'BIOT' : '',
+    'BIPH' : '',
+    'BISC' : '',
+    'CA' : '',
+    'CAST' : '',
+    'CBIO' : '',
+    'CHSC' : '',
+    'COEX' : '',
+    'COMH' : '',
+    'COML' : '',
+    'CONT' : '',
+    'CP' : '',
+    'EAS' : '',
+    'EBIO' : '',
+    'ECS' : '',
+    'FECS' : '',
+    'FILM' : '',
+    'GECS' : '',
+    'GS' : '',
+    'GSAS' : '',
+    'HECS' : '',
+    'HINDI' : '',
+    'HOID' : '',
+    'HSSP' : '',
+    'IECS' : '',
+    'IGS' : '',
+    'JCS' : '',
+    'LALS' : '',
+    'LAS' : '',
+    'NBIO' : '',
+    'NPHY' : '',
+    'NPSY' : '',
+    'PAX' : '',
+    'PHSC' : '',
+    'PMED' : '',
+    'PORT' : '',
+    'QBIO' : '',
+    'RECS' : '',
+    'REL' : '',
+    'SAL' : '',
+    'SECS' : '',
+    'SJSP' : '',
+    'SPAN' : '',
+    'SQS' : '',
+    'SYS' : '',
+    'USEM' : '',
+    'WMNS' : '',
 }
 
 # Requirements change over the years, so don't expect these to be perfectly
