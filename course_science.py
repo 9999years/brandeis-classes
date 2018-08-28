@@ -102,6 +102,27 @@ def students_per_class():
             ret[subj] = sum(subj_courses) / len(subj_courses)
     return ret
 
+def students_per_class_total():
+    total_courses = []
+    for sem, courses in all_courses().items():
+        total_courses.extend(courses)
+    courses = list(
+            filter(lambda e: e > 0,
+            map(lambda c: c.enrolled,
+            total_courses)))
+    return sum(courses) / len(courses)
+
+def student_enrollments():
+    ret = {}
+    for sem, courses in all_courses().items():
+        ret[sem] = {}
+        for subj in brandeis.constants.SUBJECTS:
+            ret[sem][subj] = sum(
+                map(lambda c: c.enrolled,
+                filter(lambda c: c.subject == subj,
+                    courses)))
+    return ret
+
 def sorted_dict(d):
     return [(k, d[k]) for k in sorted(d, key=d.get, reverse=True)]
 
@@ -118,7 +139,8 @@ def main():
     # corr = courses_per_semester()
     # for sem, dat in courses_per_semester('COSI').items():
         # corr[sem] = dat / corr[sem]
-    print(*map(lambda x: f'{x[0]} | {x[1]}],', students_per_class().items()), sep='\n')
+    # print(*map(lambda x: f'{x[0]} | {x[1]}],', students_per_class().items()), sep='\n')
+    printdict(student_enrollments())
     # print(*sorted_dict(students_per_class()['2018-3']), sep='\n')
     # print(sorted(set(map(lambda c: c.subject, itertools.chain(*all_courses().values())))))
     # subjects = total_courses_per_subject()
